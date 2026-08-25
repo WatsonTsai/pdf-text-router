@@ -1,0 +1,22 @@
+{
+  "name": "pdf-text-router",
+  "description": "One hook that stops Claude Code from reading PDFs as pictures of words, and keeps reading them when poppler is missing.",
+  "owner": {
+    "name": "Watson Tsai"
+  },
+  "plugins": [
+    {
+      "name": "pdf-text-router",
+      "source": "./",
+      "description": "Routes each Read on a PDF to the path that actually works: text layer to UTF-8 text, scans to vision, and neither one through poppler.",
+      "category": "productivity",
+      "tags": [
+        "pdf",
+        "tokens",
+        "poppler",
+        "hooks",
+        "pretooluse"
+      ]
+    }
+  ]
+}

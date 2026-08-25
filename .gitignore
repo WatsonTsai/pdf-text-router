@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+
+# downloaded benchmark PDFs: URLs and checksums live in scripts/corpus.json,
+# the files themselves are not ours to redistribute
+corpus/
+.coverage
+.pytest_cache/

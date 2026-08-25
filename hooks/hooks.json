@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/pdf_text_router.py"
+            ],
+            "timeout": 30,
+            "statusMessage": "Checking the PDF for a text layer..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,321 @@
+{
+  "description": "Public PDFs used to benchmark pdf-text-router. Every entry is downloadable without registration.",
+  "generated": "2026-08-23",
+  "files": [
+    {
+      "id": "olmocr/arxiv_math/2503.02004_pg9.pdf",
+      "category": "single-page/arxiv_math",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/arxiv_math/2503.02004_pg9.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "f94bed266047731b4b7f317351d26675c5a5e24470066c5389cc6119a08e1144"
+    },
+    {
+      "id": "olmocr/arxiv_math/2503.03762_pg1.pdf",
+      "category": "single-page/arxiv_math",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/arxiv_math/2503.03762_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "2b1a7aac9dcc4b102ef2137e9294f45e63a852656453ce85225eb75404df3b52"
+    },
+    {
+      "id": "olmocr/arxiv_math/2503.03855_pg5.pdf",
+      "category": "single-page/arxiv_math",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/arxiv_math/2503.03855_pg5.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "617f8ca04f62fcef975b47ca49a815291e3deb5e364c7c38ddb3c2c1977908a4"
+    },
+    {
+      "id": "olmocr/multi_column/03ccfe8bb1096e76dd5c186c3ae24d5fe8ec_pg1.pdf",
+      "category": "single-page/multi_column",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/multi_column/03ccfe8bb1096e76dd5c186c3ae24d5fe8ec_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "4047b3de746ebc340624d18cb9ffe83401251f8ac9470729070fdcf1a8d5a2b4"
+    },
+    {
+      "id": "olmocr/multi_column/0083fb2109e58be50aec2eca07fcbfe1230b_page_1_pg1.pdf",
+      "category": "single-page/multi_column",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/multi_column/0083fb2109e58be50aec2eca07fcbfe1230b_page_1_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "4c85f76dae5d17106e6cfe4fea1208eeff62b75c902e3ab2323c2cf80a9d9c83"
+    },
+    {
+      "id": "olmocr/tables/0486cc2ec11e21b6a8280ca71073ca28ea3f_pg1.pdf",
+      "category": "single-page/tables",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/tables/0486cc2ec11e21b6a8280ca71073ca28ea3f_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "faded9400703acf0fe52d2dc47e5dc36d07095ced864987071716cd6336a687a"
+    },
+    {
+      "id": "olmocr/tables/1529b213d5db3acb5254d34f81d18e060f28_pg1.pdf",
+      "category": "single-page/tables",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/tables/1529b213d5db3acb5254d34f81d18e060f28_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "14467d241201fa6a5db2b323543ee63faab6b385da374a88c318102187f3cc63"
+    },
+    {
+      "id": "olmocr/headers_footers/038704b29be26b6d45233e5e11218273d372957e_page_2.pdf",
+      "category": "single-page/headers_footers",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/headers_footers/038704b29be26b6d45233e5e11218273d372957e_page_2.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "ef7b8c6275d5d04d2b9b811b33c4825737c563e84972f64be9f9334a8bc3c174"
+    },
+    {
+      "id": "olmocr/headers_footers/05d9fd5d99ac557f1dfa74c097f7c1cbc9b34be0_page_6.pdf",
+      "category": "single-page/headers_footers",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/headers_footers/05d9fd5d99ac557f1dfa74c097f7c1cbc9b34be0_page_6.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "c7e38337c2316af922d1b066f42bceeb72cb0b8fc0ffd9304e09440d4388f7e0"
+    },
+    {
+      "id": "olmocr/long_tiny_text/10a_pg1.pdf",
+      "category": "single-page/long_tiny_text",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/long_tiny_text/10a_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "51ce319150dce95866fca4852c8d966bf46530b933a9eed24b6359492adb7b0f"
+    },
+    {
+      "id": "olmocr/long_tiny_text/14a_pg1.pdf",
+      "category": "single-page/long_tiny_text",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/long_tiny_text/14a_pg1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "6ec2c98635c18b7432bbbbc2b1a741b0556764255f98cbf95ff4679d40bed82b"
+    },
+    {
+      "id": "olmocr/old_scans/1.pdf",
+      "category": "single-page/old_scans",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/old_scans/1.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "c4f7da14c6d0f97576d6346996ede92d7a190f7c6cf5cd191ab4388fbd8d55f5"
+    },
+    {
+      "id": "olmocr/old_scans/2.pdf",
+      "category": "single-page/old_scans",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/old_scans/2.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "b3f48f1a5e265333bcb90aed251af6bc0c3a7b9730eb36365e6322fc0ed121b7"
+    },
+    {
+      "id": "olmocr/old_scans/3.pdf",
+      "category": "single-page/old_scans",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/old_scans/3.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "c9a6a656c9842cb0a591d4e6b7880f00bf5ca50d7d650dbef1aadbf27ae536ed"
+    },
+    {
+      "id": "olmocr/old_scans_math/1_pg10.pdf",
+      "category": "single-page/old_scans_math",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/old_scans_math/1_pg10.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "8e966415e8f18ea89aba2b8116a5f7fea76277737c22b1edb9fc7af9a025eed1"
+    },
+    {
+      "id": "olmocr/old_scans_math/2_pg39.pdf",
+      "category": "single-page/old_scans_math",
+      "url": "https://huggingface.co/datasets/allenai/olmOCR-bench/resolve/main/bench_data/pdfs/old_scans_math/2_pg39.pdf",
+      "license": "ODC-BY-1.0",
+      "source": "allenai/olmOCR-bench",
+      "note": "",
+      "sha256": "eee1f58f8af93eddf6eb8f281fc46db24f9aef19c2fd3b4c9a67e9b3ef283d5f"
+    },
+    {
+      "id": "loc/IMJ4MPPYAOJ3IK6EEI3IDHS4IKZ5WFXT",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/IMJ4MPPYAOJ3IK6EEI3IDHS4IKZ5WFXT.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=00c068d98e143ad31141ca6ed1e9f02f",
+      "sha256": "decb4698288ff11b4a1ca978cb70479c0f3051c54171c170f68982cddb160c7d"
+    },
+    {
+      "id": "loc/ZZLARWOCNXAHCS25AGWDA2UPFRV3G6TU",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/ZZLARWOCNXAHCS25AGWDA2UPFRV3G6TU.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=d0499231c33c04029939c965d47d3e5a",
+      "sha256": "20f4bda13eab43b6400b357c4663d3c443720b53382c289bd1880aa5ae08a586"
+    },
+    {
+      "id": "loc/73KIZM2KPVDJHMKWM5X36DBUKAOOCWZ4",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/73KIZM2KPVDJHMKWM5X36DBUKAOOCWZ4.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=9367abb9be5a61e2fe3e57529057d228",
+      "sha256": "751367c4e0be1e495b576b645b13d58dc7d1b8417c34222c29ae46b91d6e5b07"
+    },
+    {
+      "id": "loc/FBTKGVAADTR36EKHKLGBXAUK5DI2LT5Z",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/FBTKGVAADTR36EKHKLGBXAUK5DI2LT5Z.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=8a23c6f9644e7eaf464929b38941b4ad",
+      "sha256": "add07846df6292179d5ea2b1cd00e1851f9071c99e6bea8cdf22323a35249ad3"
+    },
+    {
+      "id": "loc/6LM5MPDEKTK4FAVUBSU5HZOLO33XZOV6",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/6LM5MPDEKTK4FAVUBSU5HZOLO33XZOV6.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=7fa2b1710058ea9701d4c1ed0483de32",
+      "sha256": "c292e4040fce1a10d64b920bce3735a99440569632136e3f36589063ddf68637"
+    },
+    {
+      "id": "loc/QSPE3BHAI3DOO552RNZ5WXPJVIWAZ4LT",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/QSPE3BHAI3DOO552RNZ5WXPJVIWAZ4LT.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=b4cab65301d886aa8ffdc80a5416d4bb",
+      "sha256": "6bd185b8c94eb9798bb3c36a562ffce03ad8098bf210680b6932152b93b4cb1b"
+    },
+    {
+      "id": "loc/PV2UUKY4MEWQFTITQRUFTBMJY6ONPUNW",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/PV2UUKY4MEWQFTITQRUFTBMJY6ONPUNW.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=e0e9aff1b7de0c755181ecdd5626d018",
+      "sha256": "5f233e98dfced356b0e45cc207cd3d7d3d0a0f5536283a81a1b15d06c44ffddc"
+    },
+    {
+      "id": "loc/PRMLNHO3YK4QH2BBAQPVLO4HWIQBTRDS",
+      "category": "gov-document",
+      "url": "https://data.labs.loc.gov/dot-gov/pdf_data/data/PRMLNHO3YK4QH2BBAQPVLO4HWIQBTRDS.pdf",
+      "license": "US federal work (public domain)",
+      "source": "LoC dot-gov PDF collection",
+      "note": "md5=39c4cb0de4b1984153e6b9614c5a8b22",
+      "sha256": "0d6c9e37d48e537b8502e4263ff126e8805b96c917bb4cf140f8c911089c46bb"
+    },
+    {
+      "id": "zenodo/22072701",
+      "category": "slide-deck",
+      "url": "https://zenodo.org/api/records/22072701/files/IMAGE26_LorenzoV7.pdf/content",
+      "license": "CC-BY-4.0",
+      "source": "Zenodo record 22072701",
+      "note": "",
+      "sha256": "0a51071729e356a7ee184028019128a662754701b37a8360f47467b113b234ae"
+    },
+    {
+      "id": "zenodo/22072300",
+      "category": "slide-deck",
+      "url": "https://zenodo.org/api/records/22072300/files/Magnetic_Vorton_ICF.pdf/content",
+      "license": "CC-BY-4.0",
+      "source": "Zenodo record 22072300",
+      "note": "",
+      "sha256": "35e15d3cce7cb3a3cc368da5ea1d9ea311b15474cdf18fdf6555448d00bab582"
+    },
+    {
+      "id": "zenodo/22070313",
+      "category": "slide-deck",
+      "url": "https://zenodo.org/api/records/22070313/files/PREMIERE-Training-Multi-Actor-Evaluation.pdf/content",
+      "license": "CC-BY-4.0",
+      "source": "Zenodo record 22070313",
+      "note": "",
+      "sha256": "b584c998568f12075e0e47796ddc4baba7115ac927434f45125f663013c3bc6a"
+    },
+    {
+      "id": "zenodo/22070195",
+      "category": "slide-deck",
+      "url": "https://zenodo.org/api/records/22070195/files/PREMIERE-Training-MAA-requirements.pdf/content",
+      "license": "CC-BY-4.0",
+      "source": "Zenodo record 22070195",
+      "note": "",
+      "sha256": "c430c442536297df3fc3645e3aa8a43d3a1979814ed1cf8f7add6deb23bf7395"
+    },
+    {
+      "id": "zenodo/22069734",
+      "category": "slide-deck",
+      "url": "https://zenodo.org/api/records/22069734/files/PREMIERE-Intro-MAA-HorizonCL6-2026-27.pdf/content",
+      "license": "CC-BY-4.0",
+      "source": "Zenodo record 22069734",
+      "note": "",
+      "sha256": "bf01a99554e3e459e46ddb8f9db8c24a87f15de6c6b3943ba9e6997ad011bfda"
+    },
+    {
+      "id": "govinfo/BILLS-117hr3684enr",
+      "category": "legislation",
+      "url": "https://www.govinfo.gov/content/pkg/BILLS-117hr3684enr/pdf/BILLS-117hr3684enr.pdf",
+      "license": "US Gov (public domain)",
+      "source": "govinfo.gov",
+      "note": "",
+      "sha256": "60477c5964b398ec6b5569e245848650124682f75349d363eb96ff2fda8aa728"
+    },
+    {
+      "id": "govinfo/BILLS-117hr5376enr",
+      "category": "legislation",
+      "url": "https://www.govinfo.gov/content/pkg/BILLS-117hr5376enr/pdf/BILLS-117hr5376enr.pdf",
+      "license": "US Gov (public domain)",
+      "source": "govinfo.gov",
+      "note": "",
+      "sha256": "d1aa47d2e307ac38cc3e437b4acd651b90561983ee604b6784f43c7c1e6ebc60"
+    },
+    {
+      "id": "soumu/n1110000",
+      "category": "cjk-japanese",
+      "url": "https://www.soumu.go.jp/johotsusintokei/whitepaper/ja/r06/pdf/n1110000.pdf",
+      "license": "Public Data License 1.0 (JP, commercial use allowed)",
+      "source": "総務省 令和6年版 情報通信白書",
+      "note": "",
+      "sha256": "5956fa065c1e7cb0afeda1afef66bf5949d0b822a8d786f6e15cb28deec7bfc4"
+    },
+    {
+      "id": "soumu/n1210000",
+      "category": "cjk-japanese",
+      "url": "https://www.soumu.go.jp/johotsusintokei/whitepaper/ja/r06/pdf/n1210000.pdf",
+      "license": "Public Data License 1.0 (JP, commercial use allowed)",
+      "source": "総務省 令和6年版 情報通信白書",
+      "note": "",
+      "sha256": "b5e49d6a3b2c03e86eb819afc924ea8184ee264e07e538ce8f76c47f50a7fdcf"
+    },
+    {
+      "id": "soumu/n2110000",
+      "category": "cjk-japanese",
+      "url": "https://www.soumu.go.jp/johotsusintokei/whitepaper/ja/r06/pdf/n2110000.pdf",
+      "license": "Public Data License 1.0 (JP, commercial use allowed)",
+      "source": "総務省 令和6年版 情報通信白書",
+      "note": "",
+      "sha256": "980de01fe6be017db922a6b732fd072bc937b7839f464709f99cf180944404a3"
+    },
+    {
+      "id": "ndc/population-projection-2024",
+      "category": "cjk-chinese",
+      "url": "https://ws.ndc.gov.tw/001/administrator/10/relfile/0/13729/a72eb7f6-1a1c-4ea8-b93a-ad7fd255f0db.pdf",
+      "license": "CC-BY-4.0",
+      "source": "國家發展委員會 中華民國人口推估 (2024-2070)",
+      "note": "",
+      "sha256": "3653e7d067cee08cdbad0d93421a360466731227b485a61dc4cf5c8404760bb6"
+    }
+  ]
+}
