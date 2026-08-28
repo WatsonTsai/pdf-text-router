@@ -10,7 +10,7 @@
             "args": [
               "/home/YOUR_USERNAME/.claude/hooks/pdf_text_router.py"
             ],
-            "timeout": 30,
+            "timeout": 60,
             "statusMessage": "Checking the PDF for a text layer..."
           }
         ]

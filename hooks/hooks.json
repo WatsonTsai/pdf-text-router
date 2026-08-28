@@ -10,7 +10,7 @@
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/pdf_text_router.py"
             ],
-            "timeout": 30,
+            "timeout": 60,
             "statusMessage": "Checking the PDF for a text layer..."
           }
         ]

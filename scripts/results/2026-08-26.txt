@@ -1,0 +1,101 @@
+file                                   pages    chars  cjk%  kind  text tok   img tok  ratio
+------------------------------------------------------------------------------------------------
+govinfo__BILLS-117hr3684enr.pdf         1039  2836193     0  text   709,308 2,019,816  2.85x
+govinfo__BILLS-117hr5376enr.pdf          273   748571     0  text   187,211   530,712  2.83x
+loc__6LM5MPDEKTK4FAVUBSU5HZOLO33XZOV6.     2     2194     0  text       548     1,912  3.49x
+loc__73KIZM2KPVDJHMKWM5X36DBUKAOOCWZ4.     1     2273     0  text       568     1,250  2.20x
+loc__FBTKGVAADTR36EKHKLGBXAUK5DI2LT5Z.     1        0     0  scan         0       638  0.00x
+loc__IMJ4MPPYAOJ3IK6EEI3IDHS4IKZ5WFXT.   143   506966     0  text   126,741   177,320  1.40x
+loc__PRMLNHO3YK4QH2BBAQPVLO4HWIQBTRDS.     2     2384     0  text       596     1,960  3.29x
+loc__PV2UUKY4MEWQFTITQRUFTBMJY6ONPUNW.     1     1065     0  text       266       948  3.56x
+loc__QSPE3BHAI3DOO552RNZ5WXPJVIWAZ4LT.    83   692750     0  text   173,187   102,920  0.59x
+loc__ZZLARWOCNXAHCS25AGWDA2UPFRV3G6TU.     2     2213     0  text       553     1,829  3.31x
+ndc__population-projection-2024.pdf      110   166699    13  text    52,720   138,600  2.63x
+olmocr__arxiv_math__2503.02004_pg9.pdf     1     3719     0  text       929     1,611  1.73x
+olmocr__arxiv_math__2503.03762_pg1.pdf     1     2873     0  text       718     1,356  1.89x
+olmocr__arxiv_math__2503.03855_pg5.pdf     1     2954     0  text       738     1,376  1.86x
+olmocr__headers_footers__038704b29be26     1     2688     0  text       672     1,310  1.95x
+olmocr__headers_footers__05d9fd5d99ac5     1      934     0  text       233       753  3.23x
+olmocr__long_tiny_text__10a_pg1.pdf.pd     1        0     0  scan         0     2,356  0.00x
+olmocr__long_tiny_text__14a_pg1.pdf.pd     1        0     0  scan         0     2,728  0.00x
+olmocr__multi_column__0083fb2109e58be5     1     5270     0  text     1,317     1,955  1.48x
+olmocr__multi_column__03ccfe8bb1096e76     1     3192     0  text       798     1,436  1.80x
+olmocr__old_scans__1.pdf.pdf               1        0     0  scan         0     4,758  0.00x
+olmocr__old_scans__2.pdf.pdf               1        0     0  scan         0     4,784  0.00x
+olmocr__old_scans__3.pdf.pdf               1        0     0  scan         0     4,784  0.00x
+olmocr__old_scans_math__1_pg10.pdf.pdf     1        0     0  scan         0       216  0.00x
+olmocr__old_scans_math__2_pg39.pdf.pdf     1      682     0  text       170       368  2.16x
+olmocr__tables__0486cc2ec11e21b6a8280c     1        0     0  scan        20       702 35.10x
+olmocr__tables__1529b213d5db3acb5254d3     1     3044     0  text       761     1,399  1.84x
+soumu__n1110000.pdf                        2     2301    67  text     1,380     2,744  1.99x
+soumu__n1210000.pdf                       14    12092    71  text     7,479    17,640  2.36x
+soumu__n2110000.pdf                       11    13237    48  text     6,610    13,860  2.10x
+zenodo__22069734.pdf                      26     8596     0  text     2,149    32,240 15.00x
+zenodo__22070195.pdf                      21     9438     0  text     2,359    26,040 11.04x
+zenodo__22070313.pdf                      16     5966     0  text     1,492    19,840 13.30x
+zenodo__22072300.pdf                       9    17095     0  text     4,273    10,411  2.44x
+zenodo__22072701.pdf                      32     8011     0  text     2,003    41,472 20.70x
+
+35 PDFs: 27 with a text layer, 8 scans, 0 unreadable
+
+On the 27 with a text layer:
+  pooled      ~3,153,078 image tokens vs ~1,285,779 text tokens (2.45x)
+  per file    best 20.70x, median 2.36x, worst 0.59x
+  saved       ~1,867,299 tokens across the set
+  by density  6.58x on 13 sparse pages (<1500 chars/page), 1.96x on 14 dense ones
+
+8 scans would go to vision either way; above 10 pages they need poppler, and this hook renders them locally instead.
+
+By category (pooled over files with a text layer; scans listed but not pooled):
+  category                          text  scan   img tok  text tok  ratio
+  cjk-chinese                          1     0   138,600    52,720  2.63x
+  cjk-japanese                         3     0    34,244    15,469  2.21x
+  gov-document                         7     1   288,139   302,459  0.95x
+  legislation                          2     0 2,550,528   896,519  2.84x
+  single-page/arxiv_math               3     0     4,343     2,385  1.82x
+  single-page/headers_footers          2     0     2,063       905  2.28x
+  single-page/long_tiny_text           0     2         0         0  0.00x
+  single-page/multi_column             2     0     3,391     2,115  1.60x
+  single-page/old_scans                0     3         0         0  0.00x
+  single-page/old_scans_math           1     1       368       170  2.16x
+  single-page/tables                   1     1     1,399       761  1.84x
+  slide-deck                           5     0   130,003    12,276 10.59x
+
+Document block path (<= 10 pages): image and text of every page are both billed
+  file                                   pages  chars/pg   img tok  text tok  ratio
+  loc__PV2UUKY4MEWQFTITQRUFTBMJY6ONPUNW.     1     1,065       948       266  3.56x
+  loc__6LM5MPDEKTK4FAVUBSU5HZOLO33XZOV6.     2     1,097     1,912       548  3.49x
+  loc__ZZLARWOCNXAHCS25AGWDA2UPFRV3G6TU.     2     1,106     1,829       553  3.31x
+  loc__PRMLNHO3YK4QH2BBAQPVLO4HWIQBTRDS.     2     1,192     1,960       596  3.29x
+  olmocr__headers_footers__05d9fd5d99ac5     1       934       753       233  3.23x
+  zenodo__22072300.pdf                       9     1,899    10,411     4,273  2.44x
+  loc__73KIZM2KPVDJHMKWM5X36DBUKAOOCWZ4.     1     2,273     1,250       568  2.20x
+  olmocr__old_scans_math__2_pg39.pdf.pdf     1       682       368       170  2.16x
+  soumu__n1110000.pdf                        2     1,150     2,744     1,380  1.99x
+  olmocr__headers_footers__038704b29be26     1     2,688     1,310       672  1.95x
+  olmocr__arxiv_math__2503.03762_pg1.pdf     1     2,873     1,356       718  1.89x
+  olmocr__arxiv_math__2503.03855_pg5.pdf     1     2,954     1,376       738  1.86x
+  olmocr__tables__1529b213d5db3acb5254d3     1     3,044     1,399       761  1.84x
+  olmocr__multi_column__03ccfe8bb1096e76     1     3,192     1,436       798  1.80x
+  olmocr__arxiv_math__2503.02004_pg9.pdf     1     3,719     1,611       929  1.73x
+  olmocr__multi_column__0083fb2109e58be5     1     5,270     1,955     1,317  1.48x
+  pooled (16 files)                                         32,618    14,520  2.25x
+
+Poppler path (> 10 pages): pdftoppm at 100 DPI, images only
+  file                                   pages  chars/pg   img tok  text tok  ratio
+  zenodo__22072701.pdf                      32       250    41,472     2,003 20.70x
+  zenodo__22069734.pdf                      26       330    32,240     2,149 15.00x
+  zenodo__22070313.pdf                      16       372    19,840     1,492 13.30x
+  zenodo__22070195.pdf                      21       449    26,040     2,359 11.04x
+  govinfo__BILLS-117hr3684enr.pdf         1039     2,729 2,019,816   709,308  2.85x
+  govinfo__BILLS-117hr5376enr.pdf          273     2,742   530,712   187,211  2.83x
+  ndc__population-projection-2024.pdf      110     1,515   138,600    52,720  2.63x
+  soumu__n1210000.pdf                       14       863    17,640     7,479  2.36x
+  soumu__n2110000.pdf                       11     1,203    13,860     6,610  2.10x
+  loc__IMJ4MPPYAOJ3IK6EEI3IDHS4IKZ5WFXT.   143     3,545   177,320   126,741  1.40x
+  loc__QSPE3BHAI3DOO552RNZ5WXPJVIWAZ4LT.    83     8,346   102,920   173,187  0.59x
+  pooled (11 files)                                      3,120,460 1,271,259  2.45x
+
+Break-even on the poppler path: one letter-size page at 100 DPI is ~1,240 image tokens, so text only costs more above ~5,000 Latin characters or ~1,600 CJK characters per page. The document block path bills text as well as the image, so extracting the text there is never a loss.
+
+wrote scripts/results/2026-08-26.csv

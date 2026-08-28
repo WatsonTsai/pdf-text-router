@@ -1,7 +1,7 @@
 {
   "name": "pdf-text-router",
-  "description": "Routes each Read on a PDF to the path that actually works: text layer to UTF-8 text, scans to vision, and neither one through poppler.",
-  "version": "0.1.0",
+  "description": "A Claude Code hook that routes each Read on a PDF to the path that actually works.",
+  "version": "0.2.0",
   "author": {
     "name": "Watson Tsai"
   },
