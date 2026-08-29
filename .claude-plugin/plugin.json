@@ -1,7 +1,7 @@
 {
   "name": "pdf-text-router",
   "description": "A Claude Code hook that routes each Read on a PDF to the path that actually works.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "Watson Tsai"
   },

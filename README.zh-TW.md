@@ -33,7 +33,7 @@ Anthropic 的 [`anthropics/skills` PDF skill](https://github.com/anthropics/skil
 | 觸發時機 | 模型判斷這個請求跟 PDF 有關 | 每一次對 `.pdf` 的 `Read` 必經，不靠判斷 |
 | 拿到文字要幾步 | 載入 skill → 跑腳本 → Read 那份 `.txt` | 一次 `Read` |
 | 原生 Read 失敗時 | 錯誤只有模型看得到；它可能想到用 skill，也可能放棄 | 有文字層的 PDF 根本不會走到 poppler |
-| 相依 | pdfplumber、pypdf、reportlab、qpdf、pytesseract、pdf2image、Tesseract、poppler | `pypdfium2`（渲染另需 `pillow`） |
+| 相依 | pdfplumber、pypdf、reportlab、qpdf、pytesseract、pdf2image、Tesseract、poppler | `pypdfium2`，沒有別的 |
 | 範圍 | 讀、寫、改 PDF | 只讀 |
 
 兩者互補，不互相取代。要「讀」一份 PDF，這支 hook 讓 `Read` 本身就做對；要「對 PDF 做事」，用官方 skill；兩個都裝很合理。唯一一種有了官方 skill 就不需要這支的人，是每一次都會明講「用 pdf skill 抽文字」的人——對他們來說這支 hook 沒有多給什麼。
@@ -50,9 +50,9 @@ hook 在每一次 `Read` 之前執行，路徑不是 `.pdf` 結尾、或檔案�
 | 掃描件，缺 poppler（超過 10 頁，或帶頁碼範圍） | 在本機以 1.5×（約 108 DPI）渲染頁面，把 Read 指向第一張 PNG、其餘列在說明裡：明確範圍最多 20 頁；沒帶範圍的長掃描件給前 10 頁。 |
 | 明確的短範圍（≤3 頁，且少於整本） | 你是想「看」版面。放行；沒有 poppler 就本機渲染。 |
 | 頁碼超出文件範圍，或 `pages` 的值解析不了（接受 `N`、`N-M` 與 `1,3,5` 這種逗號清單） | deny 並說明原因，而不是讓 Claude 撞上一個與此無關的 poppler 錯誤。 |
-| 任何意外——檔案讀不了或有密碼、零頁、沒有引擎、需要渲染時只有 `pypdf`、hook 自己崩潰 | 放行。hook 絕不該成為 Read 失敗的理由。 |
+| 任何意外——檔案讀不了或有密碼、零頁、沒有引擎、需要渲染時只有 `pypdf`、hook 自己崩潰 | 放行。hook 絕不該成為 Read 失敗的理由。如果原因是缺套件而不是檔案壞掉，這次放行的 Read 會附上一則說明，點名該跑哪一行 `pip install`，每週最多一次（見下）。 |
 
-如果抽出的內容長到 Read 一次顯示不完（超過 1,800 行或約 40,000 個 token），改寫後的 Read 只回前 200 行，說明裡會講明並指向 `Grep` 或 `offset`／`limit`，而不是默默交出一段開頭。對任何有文字層的 PDF 帶 `pages="100-105"` 的 Read 會直接落在那幾頁：hook 把 `offset`／`limit` 設成那幾頁 `[page N/M]` 標記之間的區段。你自己傳的 `offset`／`limit` 則原封不動。
+如果抽出的內容長到 Read 一次顯示不完（超過 1,800 行或約 40,000 個 token），改寫後的 Read 回傳的不是固定行數，而是約 3,000 個 token 的預覽：行數由這份檔案自己實測的 token 密度換算，夾在 40 行到 400 行之間，所以不管讀的是哪一種文件，第一眼花掉的 context 都一樣多。在語料裡 27 份有文字層的檔案上，這個值落在 203 到 400 行之間。密度是檔案的性質、不是語言的性質——那份 1,039 頁的英文法案每行 10.64 個 token，中文的人口推估報告 10.26，兩者只差十一行。說明裡會講明這次顯示了幾行，並指向 `Grep` 或 `offset`／`limit`，而不是默默交出一段開頭。對任何有文字層的 PDF 帶 `pages="100-105"` 的 Read 會直接落在那幾頁：hook 把 `offset`／`limit` 設成那幾頁 `[page N/M]` 標記之間的區段。你自己傳的 `offset`／`limit` 則原封不動。
 
 **頁面分類。** 每一頁依字元數（去除控制字元與私用區字形之後）與影像物件佔頁面的面積比分類：*blank* 是少於 15 個字元且影像不到 5%；*image* 是少於 15 個字元但頁上有影像，或是有字形但清完為空的文字層（符號字型）；*figure* 是少於 200 個字元且影像至少 40%；其餘都是 *text*。`.txt` 會在每一個非文字頁的 `[page N/M]` 那行加上標記——`(blank page)`、`(image page, no text layer)`、`(image page, text layer unreadable)`、`(figure page: 45% image, 86 chars)`——附給 Read 的說明則把三類分開列，每類最多 20 頁：blank 頁是叫模型跳過的；image 與 figure 頁附一個 `pages="N"` 的提示，讓 Claude 可以去看其中一頁。語料裡那份 110 頁的國發會人口推估報告，就是 15 頁真空白加 2 頁整頁圖。已知極限：向量繪圖——用路徑畫出來的地圖或圖表，例如 `zenodo/22072701` 第 28 頁——影像面積接近零，會被歸成 text。用 `pypdf` 時算不出影像面積，規則退回純字元：少於 15 個字元的頁一律算 image、不算 blank，讓 Claude 去看一眼，而不是跳過一頁本來有東西的頁。整份文件「是不是掃描件」的判定不受這些影響。
 
@@ -61,10 +61,10 @@ hook 在每一次 `Read` 之前執行，路徑不是 `.pdf` 結尾、或檔案�
 ```
 /plugin marketplace add WatsonTsai/pdf-text-router
 /plugin install pdf-text-router@pdf-text-router
-pip install pypdfium2 pillow
+pip install pypdfium2
 ```
 
-需要 Python 3.9 以上（CI 跑 3.9 與 3.12）。`pillow` 只有渲染路徑會用到——如果你不會在沒有 poppler 的情況下讀掃描件，就完全不需要它。
+需要 Python 3.9 以上（CI 跑 3.9 與 3.12）。相依清單就這一個套件：渲染不需要任何影像函式庫，PNG 是 hook 自己用標準函式庫寫出來的（見[引擎](#設計說明)）。
 
 接著確認 hook 真的生效。這件事很重要：一支 fail-open 的 hook「沒載入」和「有載入但放行」在外觀上完全一樣。
 
@@ -72,7 +72,7 @@ pip install pypdfium2 pillow
 python ~/.claude/plugins/marketplaces/pdf-text-router/hooks/pdf_text_router.py --selftest
 ```
 
-（如果你的 plugin 根目錄在別處，`/plugin` 會顯示安裝路徑。）self-test 會回報使用中的引擎、渲染是否可用、`pdftoppm` 在不在 PATH 上、目前的模式，以及快取目錄與它的用量和上限。`--check FILE.pdf` 則會印出單一檔案的路由決策，不產生任何副作用。
+（如果你的 plugin 根目錄在別處，`/plugin` 會顯示安裝路徑。）self-test 會回報一行狀態——全部可用、只能抽文字（只有 `pypdf`：掃描件沒有本機渲染的退路），或一個引擎都沒有（這時會以非零狀態碼結束）——以及使用中的引擎、`pdftoppm` 在不在 PATH 上、目前的模式，還有快取目錄與它的用量和上限。`--check FILE.pdf` 則會印出單一檔案的路由決策，不產生任何副作用。
 
 **解除安裝**
 
@@ -187,7 +187,9 @@ python scripts/benchmark.py ~/docs --anonymize                   # 你自己的�
 
 ## 設計說明
 
-**引擎。** 預設是 `pypdfium2`（BSD-3-Clause／Apache-2.0）。`pymupdf` 若已安裝就會被使用，但永遠不會是相依項——它是 AGPL-3.0，而那恰好會擋住最在意 token 成本的那群人。`pypdf` 是最後手段：它無法渲染，而且在複雜版面上抽出的結果與 `pypdfium2` 不一致——在語料裡四份 CJK 檔案上，它的 CJK 字元數與 `pypdfium2` 相差 −0.8% 到 +17%（`pypdf` 6.13），所以用其中一個引擎做出的判定或快取，不能直接當成另一個的。
+**引擎。** 預設是 `pypdfium2`（BSD-3-Clause／Apache-2.0）。`pymupdf` 若已安裝就會被使用，但永遠不會是相依項——它是 AGPL-3.0，而那恰好會擋住最在意 token 成本的那群人。`pypdf` 是最後手段：它無法渲染，而且在複雜版面上抽出的結果與 `pypdfium2` 不一致——在語料裡四份 CJK 檔案上，它的 CJK 字元數與 `pypdfium2` 相差 −0.8% 到 +17%（`pypdf` 6.13），所以用其中一個引擎做出的判定或快取，不能直接當成另一個的。渲染不會拉進任何第三方影像函式庫：一張 PNG 不過是一組簽章、三個 chunk 和一段 zlib 資料流，所以 hook 直接用 `zlib` 與 `struct` 把 pdfium 的像素緩衝區寫出去（MuPDF 本來就不需要，`fitz.Pixmap.save()` 自己會寫 PNG）。跟它取代掉的 `pillow` 路徑實測比較，這條路快 22%，但檔案大 42%——像素完全相同，差別在於每一列都用 filter 0，而 `pillow` 會逐列挑一個 filter。這個大小差異只花到本機快取的磁碟空間，讓 500 MB 的清理門檻更早被觸發；沒有任何一個位元組會進到模型那邊。壓得更用力並不划算：zlib level 9 只再省 10%，卻要花三倍時間，所以寫入端維持 level 6。
+
+**缺引擎時。** 以前一個引擎都裝不到時，hook 會載入、什麼都不決定、每一次 Read 都放行——從外面看跟「根本沒裝」完全一樣，一份裝好的東西就這樣可以空轉好幾個月而看起來一切正常。現在它仍然放行，但會附上一則說明，告訴模型 pdf-text-router 有裝但是空轉、`pip install pypdfium2` 才是解法，而且這一次的 Read 就照沒有 hook 時的樣子繼續走。只裝了 `pypdf`、而這次又非渲染不可時也一樣——抽文字可以，掃描件不行。兩則說明都由快取目錄裡的 `.install-notice` 標記節流成每 7 天最多一次；如果那個目錄寫不進去，就什麼都不說，因為每一次 Read 都印一則比沉默更糟。單純解析失敗的檔案維持沉默——PDF 壞掉不等於少裝套件，講錯了只會讓你去找一個並不存在的解法。已知的小毛病：`--clear-cache` 與自動清理會連 `.install-notice` 一起刪掉，那 7 天就重新起算；最壞的情況是多印一次。
 
 **快取。** `~/.claude/pdf-text-cache`，可用 `PDF_TEXT_ROUTER_CACHE` 覆寫。每一筆都是明文：`<key>-<name>.txt` 是 Claude 讀的檔案；旁邊的 `<key>-<name>.json` 是 sidecar（頁數、每頁清理前後的字元數、每頁影像面積比、頁面尺寸、引擎、token 估計值、每個頁碼標記所在的行號、以及 key），有它在，快取命中時可以完全不開 PDF 就做出決定；`<key>-p<N>-1.5x-<name>.png` 是渲染出來的頁面。舊版寫出的 sidecar 缺 `page_image_area`、`page_raw_chars` 或 `key` 其中一個欄位，就不採信，那份檔案會重抽一次。key 是檔案的大小、mtime 加上頭尾各 256 KB 內容的雜湊，而不是只看 `stat()`：重新匯出一份 PDF 常常落在同一秒、同樣的位元組數，只以 stat 為 key 的快取這時會端出上一版的文字，而本來會抓到這件事的那次 Read 已經被改寫掉了。每一筆都先寫進暫存檔再改名，而且 sidecar 只有在旁邊有一份完整的 `.txt` 時才被採信，因為一份被截斷的抽取比沒有抽取更糟。清理在每一次寫入時執行：先刪掉超過 30 天的項目，再從最舊的開始刪到目錄低於 500 MB（`PDF_TEXT_ROUTER_CACHE_MAX_MB`）為止，剛寫入的檔案除外。年齡從寫入那一刻起算——快取命中不會更新它——所以一筆項目在抽取後 30 天到期，不管你昨天有沒有讀過。`--clear-cache` 可以隨時清空整個目錄。
 
@@ -209,7 +211,7 @@ python scripts/benchmark.py ~/docs --anonymize                   # 你自己的�
 python -m pytest tests -q
 ```
 
-單元測試不需要任何樣本檔——fixture 是在記憶體裡組出來的最小 PDF，xref 表的位移是算出來的。`tests/test_corpus.py` 另外對那 35 份 benchmark 檔案做七項檢查（每一份人工核對過的掃描件都被判成掃描件、其餘都是文字、國發會報告能點名它的空白頁與整頁圖、已知頁面得到該有的分類、向量地圖是接受的漏抓、路由的 dry-run 與判定一致），`corpus/` 沒抓下來時整個模組跳過：沒語料是 156 passed，有語料是 163 passed。其中有幾個測試的存在理由是：舊版測試在它宣稱要測的東西壞掉時仍然全過，那幾個測試裡都寫明了這件事。同一套測試加上 `--selftest`，每次 push 都會在三個作業系統、兩個 Python 版本（3.9 與 3.12）上跑（[workflow](.github/workflows/test.yml)）。
+單元測試不需要任何樣本檔——fixture 是在記憶體裡組出來的最小 PDF，xref 表的位移是算出來的。`tests/test_corpus.py` 另外對那 35 份 benchmark 檔案做七項檢查（每一份人工核對過的掃描件都被判成掃描件、其餘都是文字、國發會報告能點名它的空白頁與整頁圖、已知頁面得到該有的分類、向量地圖是接受的漏抓、路由的 dry-run 與判定一致），`corpus/` 沒抓下來時整個模組跳過：沒語料是 182 passed，有語料是 189 passed。其中有幾個測試的存在理由是：舊版測試在它宣稱要測的東西壞掉時仍然全過，那幾個測試裡都寫明了這件事。同一套測試加上 `--selftest`，每次 push 都會在三個作業系統、兩個 Python 版本（3.9 與 3.12）上跑（[workflow](.github/workflows/test.yml)）。
 
 ## 授權
 

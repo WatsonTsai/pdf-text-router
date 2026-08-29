@@ -13,7 +13,13 @@ This hook routes each Read on a .pdf to whichever path actually works:
   scan, native path ok -> allow, Claude's own vision is the OCR engine
   scan, native broken  -> render pages here and point the Read at the PNGs
   bad `pages` argument -> deny with the real reason (nothing to redirect to)
+  no engine installed  -> allow + a note naming the `pip install` that fixes
+                          it, at most once every INSTALL_NOTICE_DAYS
   anything unexpected  -> allow (fail-open; a hook must never block a Read)
+
+Rendering is done with pypdfium2 or MuPDF and written out by write_png()
+below, so the whole hook is one file with no imports outside the standard
+library beyond the PDF engine itself.
 
 "Point the Read at" depends on PDF_TEXT_ROUTER_MODE:
 
@@ -62,9 +68,11 @@ import math
 import os
 import re
 import shutil
+import struct
 import sys
 import time
 import unicodedata
+import zlib
 
 # --- tunables ---------------------------------------------------------------
 
@@ -99,7 +107,15 @@ NATIVE_WHOLE_FILE_LIMIT = 10   # Claude Code reads <= this many pages poppler-fr
 MAX_RENDER_PAGES = 20      # Read's own per-call page limit; never hand back more
 LARGE_TEXT_TOKENS = 40000  # above this, show a prefix and ask for Grep/offset
 MAX_READ_LINES = 1800      # Read truncates around 2000 lines; stay under it
-PREVIEW_LINES = 200        # rewrite mode: limit for a large text file
+# rewrite mode: how much of a large text file the first Read shows. A line
+# budget alone is the wrong unit -- 200 lines of a Chinese report is several
+# times the context of 200 lines of an English bill -- so the budget is in
+# tokens and the line count is derived from the file's own measured density.
+PREVIEW_TOKENS = 3000
+PREVIEW_LINES = 400        # ...but never more lines than this
+PREVIEW_LINES_MIN = 40     # ...and never fewer than this
+INSTALL_NOTICE_DAYS = 7    # tell the model about a missing engine this often
+INSTALL_NOTICE_NAME = ".install-notice"
 CACHE_MAX_AGE_DAYS = 30
 CACHE_MAX_MB_DEFAULT = 500
 TMP_MAX_AGE_SECONDS = 3600
@@ -177,6 +193,71 @@ def rewrite(updated_input, context, sysmsg=None):
     if sysmsg:
         out["systemMessage"] = sysmsg
     emit(out)
+
+
+def allow_with_context(context, sysmsg=None):
+    """allow, unchanged input, plus a note to the model. Used when the hook
+    cannot do its job and staying silent would look like it had no opinion."""
+    out = {"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "allow",
+        "additionalContext": context,
+    }}
+    if sysmsg:
+        out["systemMessage"] = sysmsg
+    emit(out)
+
+
+# --- png writer -------------------------------------------------------------
+# pypdfium2 hands back a raw pixel buffer; its documented way to save one
+# goes through a third-party imaging library, a compiled dependency for the
+# sake of one of the simplest container formats there is. A PNG is a
+# signature, three chunks and a zlib stream, so it is written here instead
+# and the hook needs nothing outside the standard library. (MuPDF needs none
+# of this: fitz.Pixmap.save() writes PNG itself.)
+
+
+def _png_chunk(tag, data):
+    return (struct.pack(">I", len(data)) + tag + data
+            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+
+def write_png(path, buffer, w, h, n_channels, stride, rev_byteorder=False):
+    """Write an 8-bit PNG from a pdfium bitmap buffer.
+
+    n_channels 1 is greyscale (colour type 0); 3 and 4 are colour (type 2),
+    with the alpha channel of a 4-channel bitmap dropped -- a rendered page
+    is opaque, and RGB is a third smaller. pdfium orders colour channels
+    BGR(A) unless rev_byteorder was set on the render, so unless it was, B
+    and R are swapped here. `stride` is the byte length of a row including
+    any padding, which is why rows are copied one at a time.
+    """
+    if n_channels == 1:
+        color_type = 0
+    elif n_channels in (3, 4):
+        color_type = 2
+    else:
+        raise ValueError("unsupported channel count: %r" % (n_channels,))
+    mv = memoryview(buffer)
+    row_bytes = w * n_channels
+    raw = bytearray()
+    for y in range(h):
+        start = y * stride
+        row = bytearray(mv[start:start + row_bytes])
+        if n_channels == 4:
+            del row[3::4]            # BGRA -> BGR (or RGBA -> RGB)
+        if n_channels != 1 and not rev_byteorder:
+            row[0::3], row[2::3] = row[2::3], row[0::3]      # BGR -> RGB
+        raw.append(0)                # filter type 0 (None) for this row
+        raw += row
+    head = struct.pack(">IIBBBBB", w, h, 8, color_type, 0, 0, 0)
+    data = (b"\x89PNG\r\n\x1a\n"
+            + _png_chunk(b"IHDR", head)
+            + _png_chunk(b"IDAT", zlib.compress(bytes(raw), 6))
+            + _png_chunk(b"IEND", b""))
+    with open(path, "wb") as fh:
+        fh.write(data)
+    return path
 
 
 # --- pdf engines ------------------------------------------------------------
@@ -259,8 +340,12 @@ class Pdfium(Engine):
         return _image_share(boxes, w, h), len(boxes)
 
     def render(self, index, scale, dest):
-        self.doc[index].render(scale=scale).to_pil().save(dest)
-        return dest
+        # write_png() takes the bitmap's own buffer, so the documented route
+        # through a third-party imaging library is not needed here.
+        bmp = self.doc[index].render(scale=scale)
+        return write_png(dest, bmp.buffer, bmp.width, bmp.height,
+                         bmp.n_channels, bmp.stride,
+                         getattr(bmp, "rev_byteorder", False))
 
     def close(self):
         # Without this, pdfium keeps the file open and Windows refuses to
@@ -304,6 +389,8 @@ class MuPdf(Engine):
         return _image_share(boxes, r.width, r.height), len(boxes)
 
     def render(self, index, scale, dest):
+        # Pixmap.save() picks the format from the extension and writes PNG
+        # itself, so this path has never needed a third-party image library.
         m = self._m.Matrix(scale, scale)
         self.doc[index].get_pixmap(matrix=m).save(dest)
         return dest
@@ -344,15 +431,28 @@ ENGINES = (Pdfium, MuPdf, PyPdf)
 MODULE_OF = {"pypdfium2": "pypdfium2", "pymupdf": "fitz", "pypdf": "pypdf"}
 
 
-def active_engine_name():
-    """Name of the engine open_pdf() would try first, or None."""
+def available_engines():
+    """Engine classes whose module imports, in preference order.
+
+    open_pdf() returning None is two very different situations -- no engine
+    installed, or every installed engine choked on this file -- and only the
+    first one is worth telling anybody about. This is how they are told
+    apart.
+    """
+    out = []
     for cls in ENGINES:
         try:
             __import__(MODULE_OF[cls.name])
-            return cls.name
         except ImportError:
             continue
-    return None
+        out.append(cls)
+    return out
+
+
+def active_engine_name():
+    """Name of the engine open_pdf() would try first, or None."""
+    found = available_engines()
+    return found[0].name if found else None
 
 
 def open_pdf(path):
@@ -426,6 +526,7 @@ def has_poppler():
 # --- helpers ----------------------------------------------------------------
 
 BADPAGES = object()   # sentinel: `pages` was given but cannot be parsed
+CANNOT_RENDER = "cannot render"   # tail of the allow reason main() looks for
 MAX_EXPAND = 100000   # longest range span_of will materialise
 _PAGE_ITEM = re.compile(r"\s*(\d+)\s*(?:-\s*(\d+)\s*)?")
 
@@ -696,6 +797,31 @@ def sweep_temp_files(now=None):
                 os.remove(p)
         except OSError:
             pass
+
+
+def install_notice_due(now=None):
+    """True at most once every INSTALL_NOTICE_DAYS, and records that it said
+    so. A missing dependency is worth one sentence, not one per Read.
+
+    The marker is a file in CACHE_DIR because the hook is a fresh process
+    every time and has nowhere else to remember anything. If that directory
+    cannot be written to there is no way to throttle, so nothing is said:
+    a note on every single Read would be worse than silence.
+    """
+    now = now or time.time()
+    path = os.path.join(CACHE_DIR, INSTALL_NOTICE_NAME)
+    try:
+        if now - os.path.getmtime(path) < INSTALL_NOTICE_DAYS * 86400:
+            return False
+    except OSError:
+        pass                      # never written, or unreadable: due
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        atomic_write(path, b"%d\n" % int(now), binary=True)
+        os.utime(path, (now, now))
+    except OSError:
+        return False
+    return True
 
 
 def prune_cache(max_bytes=None, max_age_days=CACHE_MAX_AGE_DAYS, now=None,
@@ -1003,7 +1129,10 @@ def _decide(file_path, pages_arg, dry_run):
                 if engine is None:
                     return ("allow", "%s; no engine could reopen the file" % why)
             if not engine.can_render:
-                return ("allow", "%s; %s cannot render" % (why, engine.name))
+                # main() reads this reason back: an extract-only engine on a
+                # page that has to be looked at is a missing-dependency
+                # problem, not a broken file, and the model should hear so.
+                return ("allow", "%s; %s %s" % (why, engine.name, CANNOT_RENDER))
             if requested:
                 to_render = requested[:MAX_RENDER_PAGES]
                 rest = len(requested) - len(to_render)
@@ -1224,6 +1353,24 @@ def text_message(n, total, text_tokens, img_tokens, path_note, native_works,
     return head + body
 
 
+def preview_lines(text_tokens, lines):
+    """How many lines of a large extraction the first Read should show.
+
+    A fixed line count spends different amounts of context depending on the
+    document, so the budget is in tokens and the line count comes from the
+    file's own measured density. Across the benchmark corpus that lands
+    between 203 and 400 lines. Density is a property of the file, not of its
+    language: the 1,039-page English bill measures 10.64 tokens per line and
+    the Chinese population report 10.26. Both inputs come from the sidecar,
+    so this costs nothing beyond a division.
+    """
+    lines = max(int(lines or 0), 1)
+    avg = float(text_tokens) / lines
+    if avg <= 0:
+        return PREVIEW_LINES
+    return max(min(int(PREVIEW_TOKENS / avg), PREVIEW_LINES), PREVIEW_LINES_MIN)
+
+
 def text_rewrite_input(tool_input, res):
     """updatedInput for the text path: the .txt, plus offset/limit when the
     caller did not set them and the file or the request calls for it.
@@ -1248,8 +1395,10 @@ def text_rewrite_input(tool_input, res):
             note += ", %d lines (pages %s)" % (limit, describe_pages(res.requested))
         return upd, note
     if large:
-        upd["limit"] = PREVIEW_LINES
-        return upd, "showing the first %d lines" % PREVIEW_LINES
+        n = preview_lines(res.file_tokens, res.lines)
+        upd["limit"] = n
+        return upd, ("showing the first %d lines (~%d tokens at this file's "
+                     "density)" % (n, PREVIEW_TOKENS))
     return upd, None
 
 
@@ -1301,6 +1450,34 @@ def badpages_message(pages_arg, n):
             "document has %d pages." % (str(pages_arg), n))
 
 
+def no_engine_message():
+    """Nothing installed at all: the hook is dead weight until that changes."""
+    return ("pdf-text-router is installed but cannot do anything with this "
+            "PDF: none of the PDF engines it can use (pypdfium2, pymupdf, "
+            "pypdf) is importable, so there is no way to read the text layer "
+            "or to render a page.\n\n"
+            "To enable it: `pip install pypdfium2` (BSD-3/Apache-2.0, "
+            "prebuilt wheels, extracts and renders).\n\n"
+            "Until then this Read proceeds exactly as it would without the "
+            "hook -- Claude Code turns the PDF into page images, which for a "
+            "page range or a file over %d pages also needs poppler's "
+            "`pdftoppm` on PATH. Nothing else is being blocked or changed; "
+            "mention this once and carry on." % NATIVE_WHOLE_FILE_LIMIT)
+
+
+def cannot_render_message(engine_name):
+    """An extract-only engine met a page that has to be looked at."""
+    return ("pdf-text-router had to hand this Read back untouched: the page(s) "
+            "in question have no readable text layer and must be rendered as "
+            "images, but the only PDF engine installed here is %s, which "
+            "extracts text and cannot render.\n\n"
+            "To let the hook render scans locally: `pip install pypdfium2`.\n\n"
+            "Until then this Read goes down Claude Code's own render path, "
+            "which needs poppler's `pdftoppm` on PATH for a page range or a "
+            "file over %d pages. Mention this once and carry on."
+            % (engine_name, NATIVE_WHOLE_FILE_LIMIT))
+
+
 def outofrange_message(bad, n):
     return ("This PDF has {n} page(s), so page {b} does not exist. Normally Read "
             "would tell you that, but on a machine without poppler you would "
@@ -1324,9 +1501,27 @@ def main():
             or not os.path.isfile(fp):
         allow()
 
+    if not available_engines():
+        # Silently allowing here is how this hook used to look installed and
+        # do nothing: the Read still worked, so nobody found out for months.
+        if install_notice_due():
+            allow_with_context(no_engine_message(),
+                               sysmsg="pdf-text-router: no PDF engine "
+                                      "installed (pip install pypdfium2)")
+        allow()
+
     action, payload = decide(fp, ti.get("pages"))
 
     if action == "allow":
+        # A file that failed to parse stays silent -- a broken PDF is not a
+        # missing package, and saying so would send the user shopping for a
+        # fix that does not exist.
+        if isinstance(payload, str) and payload.endswith(CANNOT_RENDER):
+            if install_notice_due():
+                allow_with_context(
+                    cannot_render_message(active_engine_name()),
+                    sysmsg="pdf-text-router: %s cannot render scans "
+                           "(pip install pypdfium2)" % active_engine_name())
         allow()
 
     if action == "badpages":
@@ -1381,32 +1576,30 @@ def cache_usage():
 def selftest():
     print("pdf-text-router self-test")
     print("  python           %s" % sys.version.split()[0])
-    found = []
+    found = available_engines()
     for cls in ENGINES:
-        try:
-            __import__(MODULE_OF[cls.name])
-            found.append(cls)
+        if cls in found:
             print("  engine           %-10s available%s"
                   % (cls.name, "" if cls.can_render else "  (extract only)"))
-        except ImportError:
+        else:
             print("  engine           %-10s not installed" % cls.name)
     if not found:
+        print("  status           NONE: no engine importable -- the hook is "
+              "installed but inert, and every Read of a .pdf goes through "
+              "unchanged")
         print("\n  FAIL: no PDF engine. Run `pip install pypdfium2` and try again.")
         return 1
 
     active = found[0]
     print("  active engine    %s" % active.name)
     if active.can_render:
-        if active is Pdfium:
-            try:
-                __import__("PIL")
-                print("  rendering        ready (scale %.1fx)" % RENDER_SCALE)
-            except ImportError:
-                print("  rendering        UNAVAILABLE: pypdfium2 needs Pillow to "
-                      "write PNGs (`pip install pillow`)")
-        else:
-            print("  rendering        ready (scale %.1fx)" % RENDER_SCALE)
+        print("  status           full: extraction and local rendering both work")
+        print("  rendering        ready (scale %.1fx, PNG written with the "
+              "standard library)" % RENDER_SCALE)
     else:
+        print("  status           EXTRACT ONLY: %s reads text but cannot "
+              "render, so a scan gets no local fallback "
+              "(`pip install pypdfium2`)" % active.name)
         print("  rendering        unavailable with %s (extract only)" % active.name)
 
     for tool in ("pdftoppm", "pdfinfo"):

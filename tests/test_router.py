@@ -10,12 +10,14 @@ import io
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import time
 import unicodedata
 import unittest
+import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
 import pdf_text_router as R          # noqa: E402
@@ -30,7 +32,7 @@ class TempCache(unittest.TestCase):
     """Every test writes into a throwaway cache dir, never the user's."""
 
     PATCHED = ("CACHE_DIR", "CACHE_BESIDE", "has_poppler", "ENGINES", "open_pdf",
-               "dir_writable", "atomic_write", "prune_cache")
+               "dir_writable", "atomic_write", "prune_cache", "available_engines")
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="ptr-test-")
@@ -1433,12 +1435,15 @@ class TestRewriteInput(unittest.TestCase):
         self.assertIsNone(note)
 
     def test_large_file_gets_a_preview_limit(self):
+        """The limit is a token budget now, so a sparse file (1,000 tokens
+        over 5,000 lines) hits the line ceiling and a dense one the floor."""
         upd, note = R.text_rewrite_input({}, self.res(lines=5000))
         self.assertEqual(upd["limit"], R.PREVIEW_LINES)
         self.assertNotIn("offset", upd)
-        self.assertIn("first 200 lines", note)
+        self.assertIn("first %d lines" % R.PREVIEW_LINES, note)
+        self.assertIn("%d tokens" % R.PREVIEW_TOKENS, note)
         upd, _ = R.text_rewrite_input({}, self.res(text_tokens=R.LARGE_TEXT_TOKENS + 1))
-        self.assertEqual(upd["limit"], R.PREVIEW_LINES)
+        self.assertEqual(upd["limit"], R.PREVIEW_LINES_MIN)
 
     def test_callers_own_offset_or_limit_is_left_alone(self):
         for ti in ({"offset": 300}, {"limit": 50}, {"offset": 1, "limit": 9}):
@@ -1469,6 +1474,359 @@ class TestRewriteInput(unittest.TestCase):
         upd, _ = R.text_rewrite_input({}, self.res(lines=5000, requested=[2],
                                                    page_lines=None))
         self.assertEqual(upd["limit"], R.PREVIEW_LINES)
+
+
+# --- png writer -------------------------------------------------------------
+
+
+def png_chunks(data):
+    """[(tag, body)] for a PNG, checking every CRC on the way through.
+
+    Written out by hand rather than with Pillow on purpose: a decoder that
+    shares code with the encoder proves nothing about the file on disk.
+    """
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise AssertionError("not a PNG signature: %r" % data[:8])
+    out, i = [], 8
+    while i < len(data):
+        (length,) = struct.unpack(">I", data[i:i + 4])
+        tag, body = data[i + 4:i + 8], data[i + 8:i + 8 + length]
+        (crc,) = struct.unpack(">I", data[i + 8 + length:i + 12 + length])
+        if crc != zlib.crc32(tag + body) & 0xFFFFFFFF:
+            raise AssertionError("bad CRC on chunk %r" % tag)
+        out.append((tag, body))
+        i += 12 + length
+    return out
+
+
+def png_read(path):
+    """(width, height, bit_depth, colour_type, rows) with the filter byte
+    stripped from each row. Every row this writer emits is filter 0."""
+    with open(path, "rb") as fh:
+        chunks = png_chunks(fh.read())
+    tags = [t for t, _ in chunks]
+    if tags[0] != b"IHDR" or tags[-1] != b"IEND":
+        raise AssertionError("chunk order: %r" % (tags,))
+    w, h, depth, ctype, comp, filt, inter = struct.unpack(
+        ">IIBBBBB", dict(chunks)[b"IHDR"])
+    if (comp, filt, inter) != (0, 0, 0):
+        raise AssertionError("unexpected IHDR flags")
+    raw = zlib.decompress(b"".join(b for t, b in chunks if t == b"IDAT"))
+    per_px = {0: 1, 2: 3}[ctype]
+    stride = w * per_px + 1
+    rows = []
+    for y in range(h):
+        row = raw[y * stride:(y + 1) * stride]
+        if row[0] != 0:
+            raise AssertionError("row %d uses filter %d" % (y, row[0]))
+        rows.append(row[1:])
+    return w, h, depth, ctype, rows
+
+
+class _Bitmap(object):
+    """The three attributes Pdfium.render() reads off a pypdfium2 bitmap."""
+
+    def __init__(self, width, height, n_channels, pixels, pad=0,
+                 rev_byteorder=False):
+        self.width, self.height = width, height
+        self.n_channels = n_channels
+        self.stride = width * n_channels + pad
+        self.rev_byteorder = rev_byteorder
+        self.buffer = memoryview(bytearray(pixels))
+
+
+class _Page(object):
+    def __init__(self, bmp):
+        self.bmp = bmp
+
+    def render(self, scale=1.0):
+        return self.bmp
+
+
+class TestPngWriter(TempCache):
+    """The renderer used to reach Pillow through pypdfium2's .to_pil(), which
+    made a compiled image library a hard dependency of a hook whose whole
+    selling point is that it works out of the box. write_png() replaces it,
+    so these tests check the bytes rather than trusting a round-trip."""
+
+    def render_fake(self, bmp, name="fake.png"):
+        """Drive the real Pdfium.render() with a bitmap of our own."""
+        eng = R.Pdfium.__new__(R.Pdfium)
+        eng.doc = {0: _Page(bmp)}
+        return R.Pdfium.render(eng, 0, 1.5, os.path.join(self.tmp, name))
+
+    def test_a_rendered_page_is_a_well_formed_rgb_png(self):
+        self.poppler(False)
+        _, res = R.decide(self.blank_file(12, "png.pdf"), "2")
+        w, h, depth, ctype, rows = png_read(res.imgs[0][1])
+        self.assertEqual((depth, ctype), (8, 2))            # 8-bit truecolour
+        # A4 at RENDER_SCALE, give or take pdfium's rounding of a half pixel
+        self.assertAlmostEqual(w, 595 * R.RENDER_SCALE, delta=1)
+        self.assertAlmostEqual(h, 842 * R.RENDER_SCALE, delta=1)
+        self.assertEqual(len(rows), h)
+        self.assertEqual(len(rows[0]), w * 3)
+        self.assertTrue(R.png_is_complete(res.imgs[0][1]))
+        # a blank page renders white, and white is white in any channel order
+        self.assertEqual(set(rows[h // 2]), {0xFF})
+
+    def test_the_hook_never_mentions_pillow(self):
+        with open(HOOK, encoding="utf-8") as fh:
+            src = fh.read()
+        for word in ("PIL", "Pillow", "pillow", "to_pil"):
+            self.assertNotIn(word, src, word)
+
+    def test_rendering_works_with_pillow_unimportable(self):
+        """Proof by removal: block PIL in a fresh interpreter and render."""
+        path = self.blank_file(12, "nopil.pdf")
+        code = (
+            "import sys\n"
+            "class Block(object):\n"
+            "    def find_spec(self, name, path=None, target=None):\n"
+            "        if name.split('.')[0] in ('PIL', 'Pillow'):\n"
+            "            raise ImportError(name)\n"
+            "sys.meta_path.insert(0, Block())\n"
+            "sys.path.insert(0, %r)\n"
+            "import pdf_text_router as R\n"
+            "eng = R.open_pdf(%r)\n"
+            "try:\n"
+            "    eng.render(0, 1.5, %r)\n"
+            "finally:\n"
+            "    eng.close()\n"
+            "assert 'PIL' not in sys.modules\n"
+            "print('ok')\n"
+            % (os.path.dirname(HOOK), path, os.path.join(self.tmp, "nopil.png")))
+        p = subprocess.run([sys.executable, "-c", code],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
+        self.assertIn(b"ok", p.stdout)
+        w, h, _, ctype, rows = png_read(os.path.join(self.tmp, "nopil.png"))
+        self.assertEqual(ctype, 2)
+        self.assertEqual(len(rows), h)
+
+    def test_three_channels_are_bgr_and_get_swapped(self):
+        """pdfium hands back BGR; a PNG is RGB. Getting this backwards is
+        invisible on a greyscale scan and wrong on every colour figure."""
+        px = bytes([1, 2, 3, 4, 5, 6,       # two pixels, row 0
+                    7, 8, 9, 10, 11, 12])   # two pixels, row 1
+        dest = self.render_fake(_Bitmap(2, 2, 3, px))
+        w, h, _, ctype, rows = png_read(dest)
+        self.assertEqual((w, h, ctype), (2, 2, 2))
+        self.assertEqual(list(rows[0]), [3, 2, 1, 6, 5, 4])
+        self.assertEqual(list(rows[1]), [9, 8, 7, 12, 11, 10])
+
+    def test_rev_byteorder_is_already_rgb(self):
+        px = bytes([1, 2, 3, 4, 5, 6])
+        dest = self.render_fake(_Bitmap(2, 1, 3, px, rev_byteorder=True),
+                                "rev.png")
+        _, _, _, _, rows = png_read(dest)
+        self.assertEqual(list(rows[0]), [1, 2, 3, 4, 5, 6])
+
+    def test_four_channels_drop_the_alpha_and_swap(self):
+        px = bytes([1, 2, 3, 255, 4, 5, 6, 128])    # BGRA, BGRA
+        dest = self.render_fake(_Bitmap(2, 1, 4, px), "bgra.png")
+        w, h, depth, ctype, rows = png_read(dest)
+        self.assertEqual((w, h, depth, ctype), (2, 1, 8, 2))
+        self.assertEqual(list(rows[0]), [3, 2, 1, 6, 5, 4])
+
+    def test_one_channel_is_written_as_greyscale(self):
+        dest = self.render_fake(_Bitmap(3, 2, 1, bytes([0, 128, 255,
+                                                        7, 8, 9])), "grey.png")
+        w, h, depth, ctype, rows = png_read(dest)
+        self.assertEqual((w, h, depth, ctype), (3, 2, 8, 0))
+        self.assertEqual(list(rows[0]), [0, 128, 255])
+        self.assertEqual(list(rows[1]), [7, 8, 9])
+
+    def test_row_padding_is_not_copied_into_the_image(self):
+        """stride is not always width * channels; copying the padding shears
+        the picture one row further over on every line."""
+        px = bytes([1, 2, 3, 99, 99,        # one pixel + 2 bytes of padding
+                    4, 5, 6, 99, 99])
+        dest = self.render_fake(_Bitmap(1, 2, 3, px, pad=2), "pad.png")
+        _, _, _, _, rows = png_read(dest)
+        self.assertEqual(list(rows[0]), [3, 2, 1])
+        self.assertEqual(list(rows[1]), [6, 5, 4])
+
+    def test_an_unsupported_channel_count_is_refused(self):
+        with self.assertRaises(ValueError):
+            R.write_png(os.path.join(self.tmp, "x.png"), b"\x00\x00", 1, 1,
+                        2, 2)
+
+
+# --- missing dependencies ---------------------------------------------------
+
+
+class TestInstallNotice(TempCache):
+    """Before this, an install with no PDF engine -- or with pypdf only, met
+    by a scan -- was indistinguishable from a working one: the hook allowed
+    the Read and said nothing, so it looked installed and did nothing."""
+
+    def main_output(self, path, **extra):
+        """Run main() in-process (so the patches above apply) and return its
+        stdout, which is the whole contract."""
+        ti = dict(file_path=path, **extra)
+        payload = {"tool_name": "Read", "tool_input": ti}
+        saved_in, saved_out = sys.stdin, sys.stdout
+        sys.stdin = io.StringIO(json.dumps(payload))
+        sys.stdout = io.StringIO()
+        try:
+            R.main()
+        except SystemExit as exc:
+            self.assertIn(exc.code, (0, None))
+        finally:
+            out = sys.stdout.getvalue()
+            sys.stdin, sys.stdout = saved_in, saved_out
+        return out
+
+    def hook_output(self, path, **extra):
+        d = self.main_output(path, **extra)
+        if not d:
+            return None
+        d.encode("ascii")                  # must survive any console codepage
+        return json.loads(d)["hookSpecificOutput"]
+
+    def no_engines(self):
+        R.available_engines = lambda: []
+
+    def marker(self):
+        return os.path.join(R.CACHE_DIR, R.INSTALL_NOTICE_NAME)
+
+    def test_available_engines_agrees_with_the_active_one(self):
+        self.assertEqual(R.active_engine_name(), R.available_engines()[0].name)
+        self.assertIs(R.available_engines()[0], R.Pdfium)
+
+    def test_no_engine_names_the_pip_install_that_fixes_it(self):
+        self.no_engines()
+        d = self.hook_output(self.text_file(2, "noeng.pdf"))
+        self.assertEqual(d["permissionDecision"], "allow")
+        self.assertNotIn("updatedInput", d)
+        self.assertIn("pip install pypdfium2", d["additionalContext"])
+        self.assertIn("cannot", d["additionalContext"])
+        self.assertIn("proceeds", d["additionalContext"])
+
+    def test_the_notice_is_throttled(self):
+        self.no_engines()
+        path = self.text_file(2, "throttle.pdf")
+        self.assertIsNotNone(self.hook_output(path))
+        for _ in range(3):
+            self.assertEqual(self.main_output(path), "")
+
+    def test_the_notice_comes_back_after_the_window(self):
+        self.no_engines()
+        path = self.text_file(2, "again.pdf")
+        self.assertIsNotNone(self.hook_output(path))
+        old = time.time() - (R.INSTALL_NOTICE_DAYS + 1) * 86400
+        os.utime(self.marker(), (old, old))
+        self.assertIsNotNone(self.hook_output(path))
+
+    def test_a_file_that_fails_to_parse_is_never_blamed_on_a_package(self):
+        """Engines are installed and the PDF is broken. Both end in a silent
+        allow today; only one of them is a missing dependency."""
+        path = fixtures.write(self.tmp, "broken.pdf", b"%PDF-1.4 nope")
+        self.assertEqual(self.main_output(path), "")
+        self.assertFalse(os.path.exists(self.marker()))
+
+    def test_a_working_read_writes_no_marker(self):
+        self.poppler(True)
+        self.assertNotEqual(self.main_output(self.text_file(2, "fine.pdf")), "")
+        self.assertFalse(os.path.exists(self.marker()))
+
+    def test_extract_only_engine_meeting_a_scan_asks_for_pypdfium2(self):
+        R.ENGINES = (R.PyPdf,)
+        self.poppler(False)
+        path = self.blank_file(12, "scan-pypdf.pdf")
+        d = self.hook_output(path)
+        self.assertEqual(d["permissionDecision"], "allow")
+        self.assertNotIn("updatedInput", d)
+        self.assertIn("pip install pypdfium2", d["additionalContext"])
+        self.assertIn("pypdf", d["additionalContext"])
+        self.assertIn("cannot render", d["additionalContext"])
+        self.assertEqual(self.main_output(path), "")        # throttled too
+
+    def test_extract_only_engine_on_a_text_file_says_nothing(self):
+        """pypdf can do this job perfectly well; nothing to report."""
+        R.ENGINES = (R.PyPdf,)
+        self.poppler(True)
+        d = self.hook_output(self.text_file(3, "pypdf-text.pdf"))
+        self.assertIn("updatedInput", d)
+        self.assertFalse(os.path.exists(self.marker()))
+
+    def test_an_unwritable_cache_dir_is_silent_not_fatal(self):
+        """No writable directory means no way to throttle, and a note on
+        every single Read would be worse than none."""
+        blocker = fixtures.write(self.tmp, "not-a-dir", b"x")
+        R.CACHE_DIR = os.path.join(blocker, "cache")
+        self.no_engines()
+        self.assertFalse(R.install_notice_due())
+        self.assertEqual(self.main_output(self.text_file(2, "ro.pdf")), "")
+
+    def test_selftest_reports_which_of_the_three_states_this_is(self):
+        p = subprocess.run([sys.executable, HOOK, "--selftest"],
+                           stdout=subprocess.PIPE)
+        self.assertEqual(p.returncode, 0)
+        self.assertIn(b"status           full", p.stdout)
+        self.assertNotIn(b"Pillow", p.stdout)
+
+    def _selftest_without(self, *modules):
+        code = (
+            "import sys\n"
+            "class Block(object):\n"
+            "    def find_spec(self, name, path=None, target=None):\n"
+            "        if name.split('.')[0] in %r:\n"
+            "            raise ImportError(name)\n"
+            "sys.meta_path.insert(0, Block())\n"
+            "sys.path.insert(0, %r)\n"
+            "import pdf_text_router as R\n"
+            "sys.exit(R.selftest())\n" % (modules, os.path.dirname(HOOK)))
+        return subprocess.run([sys.executable, "-c", code],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def test_selftest_reports_the_extract_only_state(self):
+        p = self._selftest_without("pypdfium2", "fitz")
+        self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
+        self.assertIn(b"status           EXTRACT ONLY", p.stdout)
+        self.assertIn(b"pip install pypdfium2", p.stdout)
+
+    def test_selftest_reports_the_no_engine_state(self):
+        p = self._selftest_without("pypdfium2", "fitz", "pypdf")
+        self.assertEqual(p.returncode, 1)
+        self.assertIn(b"status           NONE", p.stdout)
+        self.assertIn(b"pip install pypdfium2", p.stdout)
+
+
+# --- preview budget ---------------------------------------------------------
+
+
+class TestPreviewLines(unittest.TestCase):
+    """PREVIEW_LINES used to be a flat 200, which is a different amount of
+    context per file by a factor of five or more."""
+
+    def test_dense_text_gets_fewer_lines_than_sparse_text(self):
+        dense = R.preview_lines(text_tokens=30000, lines=1000)   # 30 tok/line
+        sparse = R.preview_lines(text_tokens=10000, lines=1000)  # 10 tok/line
+        self.assertLess(dense, sparse)
+        self.assertEqual(dense, R.PREVIEW_TOKENS // 30)
+        self.assertEqual(sparse, R.PREVIEW_TOKENS // 10)
+
+    def test_a_cjk_file_shows_fewer_lines_than_a_latin_one(self):
+        """Same line count, same page count, different scripts: the Chinese
+        file is worth several times the tokens per line."""
+        latin = "The quick brown fox jumps over the lazy dog. " * 2
+        cjk = CJK * 2
+        n = 900
+        latin_lines = R.preview_lines(R.est_text_tokens(latin) * n, n)
+        cjk_lines = R.preview_lines(R.est_text_tokens(cjk) * n, n)
+        self.assertLess(cjk_lines, latin_lines)
+
+    def test_the_ceiling_holds_for_a_nearly_empty_file(self):
+        self.assertEqual(R.preview_lines(10, 100000), R.PREVIEW_LINES)
+        self.assertEqual(R.preview_lines(0, 5000), R.PREVIEW_LINES)
+
+    def test_the_floor_holds_for_a_very_dense_file(self):
+        self.assertEqual(R.preview_lines(500000, 100), R.PREVIEW_LINES_MIN)
+
+    def test_no_division_by_zero_on_an_empty_file(self):
+        self.assertEqual(R.preview_lines(0, 0), R.PREVIEW_LINES)
+        self.assertEqual(R.preview_lines(0, None), R.PREVIEW_LINES)
 
 
 # --- process contract -------------------------------------------------------
@@ -1563,9 +1921,15 @@ class TestProcessContract(TempCache):
         path = self.text_file(70, "big.pdf", lines_per_page=30)   # > 1800 lines
         _, out, _ = self.run_hook(self.read(path))
         d = json.loads(out)["hookSpecificOutput"]
-        self.assertEqual(d["updatedInput"]["limit"], R.PREVIEW_LINES)
-        self.assertIn("first 200 lines", d["additionalContext"])
+        limit = d["updatedInput"]["limit"]
+        self.assertTrue(R.PREVIEW_LINES_MIN <= limit <= R.PREVIEW_LINES, limit)
+        self.assertIn("first %d lines" % limit, d["additionalContext"])
         self.assertIn("Grep", d["additionalContext"])
+        # and the window really is worth about PREVIEW_TOKENS
+        with open(d["updatedInput"]["file_path"], encoding="utf-8") as fh:
+            head = "".join(fh.readlines()[:limit])
+        self.assertLess(abs(R.est_text_tokens(head) - R.PREVIEW_TOKENS),
+                        R.PREVIEW_TOKENS // 2)
 
     def test_callers_offset_is_not_overridden(self):
         path = self.text_file(70, "big2.pdf", lines_per_page=30)

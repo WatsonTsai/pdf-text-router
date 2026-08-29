@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install engines and test runner
-        run: python -m pip install pypdfium2 pillow pypdf pytest
+        run: python -m pip install pypdfium2 pypdf pytest
       - name: Unit tests
         run: python -m pytest tests -q
       - name: Hook self-test
